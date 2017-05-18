@@ -1,0 +1,3 @@
+#!/bin/bash
+clear
+watch 'ps ax | grep rsync | grep -v rsyncd.conf | grep -v grep'

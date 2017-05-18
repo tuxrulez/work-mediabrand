@@ -1,0 +1,2 @@
+#!/bin/bash
+ssh 201.33.14.6 -l radiob -p 22

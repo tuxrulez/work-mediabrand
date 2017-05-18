@@ -1,0 +1,12 @@
+#!/bin/bash
+watch '	echo;
+	echo "--------------------------------------------------" ; 
+	echo "Rede:" `ps axwww  | grep async | grep -v grep | cut -d "/" -f8`; 
+	echo; echo "--------------------------------------------------" ; 
+	echo ; echo "Transmitindo:" `ps axwww | grep udp | grep -v grep | cut -d "/" -f9`; 
+	echo; echo "--------------------------------------------------" ; 
+	echo ; echo "Tamanho:"; ls -lah /home/pacotes/`ps axwww  | grep async | grep -v grep | cut -d "/" -f8`/`ps axwww | grep udp | grep -v grep | cut -d "/" -f9`| cut -d " " -f5;
+	echo; 
+	echo "Atualizando: " ; echo; 
+	ps ax | grep rsync | grep -v grep;
+	'

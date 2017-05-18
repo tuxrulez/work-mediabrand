@@ -1,0 +1,421 @@
+#!/bin/bash
+usuario="suporte"
+senha="rapaduraX"
+# Manipulator.sh:20-09-2010:antonio <equipetecnologia@megamidia.com.br>
+# Unificacao de scripts para manipulacao de pacotes no servidor scac.
+#
+# Cuidado ao utilizar, tenha certeza de nao gerar pacotes acima de 200 Megas.
+function desativar_pacotes(){
+	local nomePacote="${1}"
+        mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -e  "UPDATE tbl_pacotes SET status='0' WHERE nome_pacote LIKE '%${nomePacote}%'"
+
+	if [ $? -eq 0 ]
+	then
+		clear
+	        mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -t -e "SELECT nome_pacote,\
+					tamanho_pacote as tamanho,\
+					qtde_transmissoes_efetuadas as transmissoes,\
+					dt_hora_criacao,\
+					status\
+					FROM tbl_pacotes\
+					WHERE nome_pacote LIKE '%${nomePacote}%'"
+	fi
+}
+function ativar_pacotes(){
+	local nomePacote="${1}"
+        mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -e  "UPDATE tbl_pacotes SET status='1' WHERE nome_pacote LIKE '%${nomePacote}%'"
+
+	if [ $? -eq 0 ]
+	then
+		clear
+	        mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -t -e "SELECT nome_pacote,\
+					tamanho_pacote as tamanho,\
+					qtde_transmissoes_efetuadas as transmissoes,\
+					dt_hora_criacao,\
+					status\
+					FROM tbl_pacotes\
+					WHERE nome_pacote LIKE '%${nomePacote}%'"
+	fi
+}
+
+
+function atualiza_transmissoes(){
+	local nomePacote="${1}"
+
+	if [ "$2" ]
+	then
+		local numeroTrans="${2}"
+	else
+		local numeroTrans="2"
+	fi
+
+        mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -e "UPDATE tbl_pacotes SET qtde_transmissoes_efetuadas='${numeroTrans}' WHERE nome_pacote LIKE '%${nomePacote}%'"
+
+	if [ $? -eq 0 ]
+	then
+		clear
+	        mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -t -e "select nome_pacote,\
+		                                tamanho_pacote as tamanho,\
+						qtde_transmissoes_efetuadas as transmissoes,\
+						dt_hora_criacao as 'Gerado em' from tbl_pacotes\
+						WHERE nome_pacote LIKE '%${nomePacote}%'"
+	fi
+}
+
+function exibe_pacotes(){
+        mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -te "SELECT nome_pacote,\
+			tamanho_pacote as tamanho,\
+			qtde_transmissoes_efetuadas as transmissoes,\
+			dt_hora_criacao FROM tbl_pacotes where status='1'\
+			order by nome_pacote"
+}
+
+function exibe_clientes_envio(){
+	echo -e "\nClientes Cadastrados atualmente.\n"
+	mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -te "select cod_cliente,rede_cliente,status,status_envio from tbl_clientes order by status_envio DESC, status DESC, rede_cliente"
+	echo -e "\nCliente efetuando envio.\n"
+	mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -te "select cod_cliente,rede_cliente,status,status_envio from tbl_clientes where status_envio='1'"
+}
+
+function desativa_cliente_envio(){
+	local codClient="${1}"
+	mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -e "update tbl_clientes set status=0 where cod_cliente='${codClient}'"
+}
+
+function ativa_cliente_envio(){
+	local codClient="${1}"
+	mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -e "update tbl_clientes set status=1 where cod_cliente='${codClient}'"
+}
+
+function adiciona_cliente_envio(){
+	local nomeCliente="${1}"
+	local code=`mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -Bse "select cod_cliente from tbl_clientes where nome_cliente='$nomeCliente'"`
+
+	# por padrao insere novo cliente desabilitado para envio
+	if [ "$code" == "" ]
+	then
+		mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -e "insert into tbl_clientes values ('','$nomeCliente','$nomeCliente','0','0');"
+		mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -e "select cod_cliente,rede_cliente,status,status_envio from tbl_clientes where nome_cliente='$nomeCliente'"
+		mkdir -p /local/pacotes/"$nomeCliente"
+		chown -R radiob.radiob /local/pacotes/"$nomeCliente"
+		mkdir -p /local/tv/"$nomeCliente"
+		chown -R radiob.radiob /local/tv/"$nomeCliente"
+	fi
+}
+
+function remove_cliente_envio(){
+	local nomeCliente="${1}"
+	local code=`mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -Bse "select cod_cliente from tbl_clientes where nome_cliente='$nomeCliente'"`
+
+# Remove o cliente de envio da tabela clientes e os diretorios de conteudo/pacotes.
+	if [ "$code" ]
+	then
+		echo -en "Deseja mesmo remover o cliente ${nomeCliente}?\n\t(Sim?)>"
+		read confirma
+		if [ "$confirma" == "Sim" ]
+		then
+			mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -e "delete from tbl_clientes where cod_cliente='$code'"
+			rm -rf /local/pacotes/"$nomeCliente"
+			rm -rf /local/tv/"$nomeCliente"
+		fi
+	fi
+	exibe_clientes_envio
+}
+
+#TODO: PARTE 1
+
+function parar_cliente_envio(){
+	local codClient="${1}"
+	mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -e "update tbl_clientes set status_envio=0 where cod_cliente='${codClient}'"
+}
+
+function remove_sql(){
+	local rede="${1}"
+	clear
+	echo -e "Deseja criar um novo pacote agora?\nSim/nao?"
+	read chave_pacote
+
+	if [ "$chave_pacote" == "Sim"  ]
+	then
+	#echo $rede
+        	find /local/tv/$rede/sql -iname "tv.zip" -exec rm -rf {} \;
+	        echo "removidos arquivos sql, gerar pacote."
+	        #echo "nohup /usr/local/bin/cria-pacote.sh $rede &"
+		echo -n "Deseja gerar pacote com mais arquivos: 
+				1 - Sim
+				2 - Nao 
+				>> : "; read desejo
+		if [ $desejo == "1" ]; then
+			manipulator
+		else
+			echo "Rodei o cria-pacote.sh ... AGUARDE"
+			nohup /usr/local/bin/cria-pacote.sh $rede &
+		fi
+	fi
+}
+
+function remove_links_arquivos(){
+# Quando utilizada, essa funcao apenas remove os links referentes ao arquivo, e nao o original da pasta '000'
+# Esse procedimento agilza o processo de criacao de novos pacotes, tendo em vista que o cria-pacote.sh efetua um "rsync --copy-links".
+	local rede="${1}"
+	local arquivo="${2}"
+
+	find /local/tv/$rede/ -iname "*${arquivo}*" | grep -v '/000/' | while read finded
+        do
+		rm -f "$finded"
+        done
+
+	if [ $? -eq 0 ]
+	then
+		remove_sql $rede
+	fi
+}
+
+function pesquisa_arquivo_existente(){
+	local rede="${1}"
+	local arquivo="${2}"
+	local arqs="`find /local/tv/$rede/ -iname "*${arquivo}*" | grep -v '/000/' | head -n 15`"
+
+	if [ "$arqs" ]
+	then
+		echo "$arqs"
+		echo -en "\n\n\tDeseja incluir esse arquivo em um novo pacote?\n\t>"
+		read chave_confirma
+		if [ "${chave_confirma}" == "Sim" ]
+		then
+			remove_links_arquivos "$rede" "$arquivo"
+		else
+			echo "invalid code"
+		fi
+	fi
+}
+
+function conteudo_pacote(){
+	local nomePacote="$1"
+	local cod="`mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -Bse "select cod_cliente from tbl_pacotes where nome_pacote='${nomePacote}'"`"
+	local redeCliente="`mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -Bse "select rede_cliente from tbl_clientes where cod_cliente=${cod}"`"
+
+	if [ "$nomePacote" ]
+	then
+		cat /local/pacotes/$redeCliente/conteudo_pacote_rsync_"`echo $nomePacote | sed 's/_update\.tar\.gz/\.txt/g'`"\
+			| sed 's/->.*//g'\
+			| grep -v '\/$'\
+			| grep -v '\.zip'\
+			| grep -v 'Obrigado'\
+			| grep -v'seguranca'
+	fi
+}
+
+function lojas_pacote(){
+        local nomePacote="$1"
+        local cod="`mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -Bse "select cod_cliente from tbl_pacotes where nome_pacote='${nomePacote}'"`"
+        local redeCliente="`mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -Bse "select rede_cliente from tbl_clientes where cod_cliente=${cod}"`"
+
+        if [ "$nomePacote" ]
+        then
+                cat /local/pacotes/$redeCliente/lojas_"`echo $nomePacote | sed 's/_update\.tar\.gz/\.txt/g'`"
+        fi
+}
+
+
+function option_3_menu(){
+	echo -e "Procedimento para reenvio de pacotes.\
+		\nFavor selecionar um codigo de cliente abaixo\n"
+	mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -t -e 'select cod_cliente,rede_cliente from tbl_clientes'
+	echo -en "\n\tEntrar com codigo do cliente\n\t>"
+	read cod
+
+	if [ "$cod" ]
+	then
+		local nomeCliente="`mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -Bse "select rede_cliente from tbl_clientes where cod_cliente=${cod}"`"
+		if [ "$nomeCliente" ]
+		then
+			clear
+			echo -e "\n\tRede Selecionada para reenvio de conteudos:\n\t"\
+			`mysql -u${usuario} -p${senha} CTRL_TRANSMISSOES -Bse "select rede_cliente from tbl_clientes where cod_cliente=${cod}"`
+			echo -en "\n\n\tEntre com nome do arquivo\n\t>"
+			read arquivo
+
+			if [ "$arquivo" ]
+			then
+				pesquisa_arquivo_existente ${nomeCliente} "${arquivo}"
+			else
+				echo "invalid code"
+			fi
+		else
+			echo "invalid code"
+		fi
+	else
+		echo "invalid code"
+	fi
+}
+
+#TODO: PARTE 2
+
+
+function option_2_menu(){
+        echo -en "\tGERENCIAMENTO DE CLIENTES PARA ENVIO DE CONTEUDO (REDE)\
+                \n\n\tEscolha uma opcao abaixo.\
+                \n\t\t1 - Exibir clientes cadastrados.\
+                \n\t\t2 - Adiciona cliente de envio.\
+		\n\t\t3 - Ativa cliente de envio.\
+		\n\t\t4 - Desativar cliente.\
+                \n\t\t5 - Remove cliente.\
+		\n\t\t6 - Parar cliente de Envio.\
+                \n\t>"
+        read menu2
+        case "$menu2" in
+                1)      clear
+			exibe_clientes_envio
+                ;;
+		2)	clear
+			echo -en "\tAdicionar nova rede para envio\n\n\tInformar o nome do novo cliente\n\t>"
+	                read nomeCliente
+
+                	if [ "$nomeCliente" ]
+        	        then
+				adiciona_cliente_envio "$nomeCliente"
+			else
+				echo "Campo nome nao pode ser em branco"
+			fi
+		;;
+		3)	clear
+			exibe_clientes_envio
+			echo -en "\n\n\tAtivar Cliente\n\n\tInformar o codigo do cliente a ser ativado\n\t>"
+	                read codCliente
+
+                	if [ "$codCliente" ]
+        	        then
+				ativa_cliente_envio "$codCliente"
+			fi
+		;;
+		4)	clear
+			exibe_clientes_envio
+			echo -en "\n\n\tDesativar Cliente\n\n\tInformar o codigo do cliente a ser desativado\n\t>"
+	                read codCliente
+
+                	if [ "$codCliente" ]
+        	        then
+				desativa_cliente_envio "$codCliente"
+			fi
+		;;
+		5)	clear
+			exibe_clientes_envio
+			echo -en "\n\n\tDesativar Cliente\n\n\tInformar o nome do cliente a ser REMOVIDO\n\t(obs: Pasta de conteudo permanecera no server)\n\t>"
+                        read nomeCliente
+
+			if [ "$nomeCliente" ]
+                        then
+				remove_cliente_envio "$nomeCliente"
+			fi
+		;;
+		6)	clear
+			exibe_clientes_envio
+			echo -en "\n\n\tParar Cliente\n\n\tInformar o codigo do cliente a ser parado\n\t>"
+	                read codCliente
+
+                	if [ "$codCliente" ]
+        	        then
+				parar_cliente_envio "$codCliente"
+			fi
+		;;
+	        *)	clear
+		        echo -e "wrong option\n saindo"
+	esac
+}
+
+function option_1_menu(){
+	echo -en "\tGERENCIAMENTO DE PACOTES\
+		\n\n\tEscolha uma opcao abaixo\
+		\n\t\t1 - Exibir pacotes ativos\
+		\n\t\t2 - Atualizar quantidade de transmissoes\
+		\n\t\t3 - Desativar pacotes ativos\
+		\n\t\t4 - Verificar conteudo de um pacote\
+		\n\t\t5 - Verificar Lojas\
+		\n\t\t6 - Ativar pacote desativado
+		\n\t>"
+	read menu1
+	case "$menu1" in
+		1)      clear
+			exibe_pacotes
+		;;
+		2)      clear
+			exibe_pacotes
+			echo -en "\n\tInformar o nome do pacote que sera alterado a quantidade de transmissoes\n\t>"
+	                read nomePacote
+                	if [ "$nomePacote" != "" ]
+        	        then
+				echo -en "\n\tInformar a quantidade de transmissoes\t(default=2)\n\t>"
+	                	read transmiss
+
+	                        atualiza_transmissoes "$nomePacote" "$transmiss"
+                	fi
+		;;
+		3)      clear
+			exibe_pacotes
+			echo -en "Informar o nome do pacote que sera DESATIVADO\n\t>"
+	                read nomePacote
+                	if [ "$nomePacote" != "" ]
+        	        then
+	                        desativar_pacotes "$nomePacote"
+                	fi
+		;;
+		4)	clear
+			exibe_pacotes
+                        echo -en "Informar o nome do pacote que deseja verificar o conteudo\n\t>"
+                        read nomePacote
+                        if [ "$nomePacote" != "" ]
+                        then
+                                conteudo_pacote "$nomePacote"
+                        fi
+		;;
+		5)	clear
+			exibe_pacotes
+                        echo -en "Informar o nome do pacote que deseja verificar as Lojas\n\t>"
+			read nomePacote
+                        if [ "$nomePacote" != "" ]
+                        then
+                                lojas_pacote "$nomePacote"
+                        fi
+		;;
+		6)      clear
+			echo -en "Informar o nome do pacote que sera RE-ATIVADO\n\t>"
+	                read nomePacote
+                	if [ "$nomePacote" != "" ]
+        	        then
+	                        ativar_pacotes "$nomePacote"
+                	fi
+		;;
+	        *)	clear
+		        echo -e "wrong option\n saindo"
+	esac
+}
+
+#TODO: PARTE 3
+
+function main_menu(){
+	clear
+	echo -e "\tMegamidia Group\n\tGERENCIAMENTO DE CONTEUDO - Servidor SCAC"
+	echo -en "\n\tEscolha uma opcao abaixo\
+			\n\t\t1 - Gerenciamento de pacotes\
+			\n\t\t2 - Gerenciamento de clientes\
+			\n\t\t3 - Re-transmissao de conteudos\
+			\n\t>"
+	read menu
+	case "$menu" in
+		1)      clear
+			option_1_menu	
+		;;
+		2)	clear
+			option_2_menu
+		;;
+		3)	clear
+			option_3_menu
+		;;
+	        *)	clear
+		        echo -e "wrong option\n saindo"
+	esac
+}
+
+main_menu
+
