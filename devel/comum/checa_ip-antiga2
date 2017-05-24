@@ -1,0 +1,37 @@
+#!/bin/bash
+# Criado inicialmente: Gildecio E Barboza <gildecio@gmail.com>
+# Alteracoes: Marcel Fontes <marcel@megamidia.com.br>
+
+#x=`pidof -x /usr/local/bin/checa_ip`
+#if [ $? == 0 ]; then
+#        exit 0
+#else
+hora=`cat /usr/local/bin/radio-update.sh | grep "hora=" | cut -d "=" -f2 | cut -d '"' -f2`
+
+        chmod 775 -R /usr/local/radio/generos
+        chown radiob. -R /usr/local/radio/generos
+
+if [ -f /usr/sbin/sntp ]; then
+        sntp -P no -r $hora
+        hwclock -w
+else
+        ntpdate $hora
+	hwclock -w
+fi
+
+x=`ping -c1 www.terra.com.br`
+if [ $? == 0 ]; then
+        dig +short myip.opendns.com @resolver1.opendns.com > /tmp/ip_externo
+		if [ $? == 0 ]; then
+                 exit 0
+		else
+	  	 dig +short myip.opendns.com @resolver1.opendns.com > /tmp/ip_externo
+		fi
+else
+	x=`ping -c1 131.255.239.38`
+	if [ $? == 0 ]; then
+	 echo "Erro na resolucao de nomes" > /tmp/ip_externo
+		fi
+        exit 0
+	fi
+#fi

@@ -1,0 +1,21 @@
+#!/bin/bash
+clear
+echo ""
+echo ""
+echo ""
+echo ""
+echo "
+MegaMidia Group"
+echo "Setando o Volume ..."
+sleep 5
+echo -n "Setar valor Padrao 
+	1 - Sim
+	2 - Nao >> "; read val
+if [ $val == "1" ]; then
+	aumix -v90 -w90 
+	alsactl store
+else
+	echo -n "Qual Valor (0 a 100): "; read x
+	aumix -v$x -w$x
+	alsactl store
+fi

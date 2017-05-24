@@ -1,0 +1,29 @@
+#!/bin/bash
+
+#TODO: atualizar local ou remoto
+
+# Gildecio E Barboza gildecio@gmail.com
+rede=`cat /var/www/config.inc.php | grep rede | cut -d "'" -f2`
+musical="banco_$rede"
+ip=`cat /usr/local/bin/radio-update.sh | grep ip= | cut -d '"' -f2 | head -n1`
+
+x=`ifconfig eth0 | grep "inet addr"`
+if [ $? == "0" ]; then
+        ips=`ifconfig eth0 | grep "inet addr" | cut -d ":" -f2 | cut -d " " -f1`
+else
+        ips=`ifconfig eth0 | grep "inet end" | cut -d ":" -f2 | cut -d " " -f2 | cut -d "." -f1-3`
+fi
+
+if [ $ips != "196.0.0" ]; then
+
+x=`rsync -qa --timeout=180 --password-file=/etc/radio.update rsync://$rede@$ip:/$rede/sql /opt/bla`
+if [ $? == 0 ]; then
+        banco=`/usr/bin/rsync -razv --timeout=600 --copy-links --delete-after --password-file=/etc/radio.update rsync://$musical@$ip:/$musical/ /usr/local/radio/generos/musical`
+else
+        echo "nao funcionando `date`" > /Xerro_rsync_musical.txt
+        rm -f /erro_rsync_musical.txt 2> /dev/null
+fi
+
+else
+        /usr/bin/rsync -razv --copy-links --delete-after --password-file=/etc/radio.update rsync://$musical@196.0.0.15:/$musical/ /usr/local/radio/generos/musical
+fi

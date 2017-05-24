@@ -1,0 +1,28 @@
+#!/bin/bash
+clear
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo "Limpando a base de dados ..."
+sleep 3
+echo "Executado Tabela em: `date`" >> /usr/src/tabela.txt
+service mysql stop
+rm -rf /var/lib/mysql
+mysql_install_db
+chown mysql. -R /var/lib/mysql
+service mysql start
+> /var/log/mysql/mysqld.log
+mysqladmin -f drop radio  >/dev/null 2>&1
+mysqladmin -f create radio  >/dev/null 2>&1
+mysql radio < /var/www/html/estrutura.sql
+echo "delete from arquivos;" 	| mysql -u root radio
+echo "delete from esquemas;" 	| mysql -u root radio
+echo "delete from generos;" 	| mysql -u root radio
+echo "delete from grades;" 	| mysql -u root radio
+echo "delete from playlists;" 	| mysql -u root radio
+echo "delete from programacoes;" | mysql -u root radio
+(cd /var/www/html/; ./update.php; ./musical.php)
+killall X
+reboot

@@ -1,0 +1,9 @@
+#!/bin/bash
+x=`tty`
+if [ $x == "/dev/pts/0" ]; then
+	echo "Com Botao - Pao Quentinho"
+else
+	/usr/bin/X &
+	export DISPLAY=:0.0
+	xbindkeys
+fi	

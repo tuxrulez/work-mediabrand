@@ -1,0 +1,25 @@
+#!/bin/bash
+rede=`cat /var/www/config.inc.php | grep rede | cut -d "'" -f2`
+loja=`cat /var/www/config.inc.php | grep loja | cut -d "'" -f2`
+datacenter=`cat /usr/local/bin/radio-update.sh | grep ip | head -n1 | cut -d '"' -f2`
+
+if [ $rede == "cecsuper" ]; then
+        echo "nameserver 131.255.239.38" > /etc/resolv.conf
+fi
+
+
+ntpdate -u `cat /usr/local/bin/radio-update.sh | grep "hora=" | cut -d "=" -f2 | cut -d '"' -f2`
+
+/usr/bin/rsync -Crvzp --copy-links --password-file=/etc/radio.update rsync://$rede@$datacenter:/$rede/sql/$loja/ /var/www  >/dev/null 2>&1
+
+
+if [ $? == 0 ]; then
+        /usr/local/bin/radio-update.sh
+	chmod 750 -R /var/log/radio
+        chmod 750 -R /var/log/mysql
+        chmod -s /var/log/radio
+fi
+
+echo 'delete from arquivos; delete from esquemas; delete from generos; delete from grades; delete from playlists; delete from programacoes;' | mysql radio
+
+(cd /var/www/; nohup ./update.php; nohup ./musical.php ; sleep 5; nohup ./player.php &)

@@ -1,0 +1,45 @@
+#!/bin/bash
+# log.sh: Cria log do que esta tocando no XMMS atraves do xmms-shell
+# Carlos Daniel de Mattos Mercer <daniel@useinet.com.br>
+# 2004-04-08
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin/X11:/usr/X11R6/bin:/usr/lib/qt3/bin:/root/bin
+export PATH
+hora=`date +%d/%m/%Y-%H:%M:%S`
+faixa=`xmms-shell -e status | grep "Playing: " | \
+	   sed -e 's/Playing: //g' | sed -e 's/(.*//g'`
+
+# Verifica se trocou a faixa para truncar o log
+while [ $? ]; do
+	faixa1=`xmms-shell -e status | grep "Playing: " | sed -e 's/Playing: //g' \
+    		| sed -e 's/(.*//g'`
+	if [ "$faixa" != "$faixa1" ]; then
+		hora=`date +%d/%m/%Y-%H:%M:%S`
+		faixa=$faixa1
+		echo $hora $faixa > /var/log/radio/radio.log
+		break
+	fi
+	sleep 1
+done
+
+# Verifica se trocou a faixa para atualizar a log
+while [ $? ]; do
+	faixa1=`xmms-shell -e status | grep "Playing: " | sed -e 's/Playing: //g' \
+    		| sed -e 's/(.*//g'`
+	if [ "$faixa" != "$faixa1" ]; then
+		hora=`date +%d/%m/%Y-%H:%M:%S`
+		faixa=$faixa1
+		echo $hora $faixa >> /var/log/radio/radio.log
+                rede=`cat /var/www/html/config.inc.php | grep "rede" | cut -d "'" -f2`
+                loja=`cat /var/www/html/config.inc.php | grep "loja" | cut -d "'" -f2`
+                data=`echo $hora | cut -d "-" -f1`
+                hora2=`echo $hora | cut -d "-" -f2 | cut -d " " -f1`
+		echo $faixa1 > /tmp/faixa
+		tipo0=`find /usr/local/radio/generos/ -name "*\`cat /tmp/faixa\`*" | head -n1`
+		tipo1=`echo $tipo0 | cut -d "/" -f6`
+		genero=`echo $tipo0 | cut -d "/" -f7`
+                echo "$rede|$loja|$data|$hora2|$tipo1|$faixa|$genero" >> /var/log/radio/executadas.txt
+		rm -f /tmp/faixa
+	fi
+	sleep 1
+done

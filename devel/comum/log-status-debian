@@ -1,0 +1,207 @@
+#!/bin/bash
+# Script de Logs:
+# Features: 
+#	- Audiencia
+#	- IP Externo
+#	- Rsync Logs
+#	- Script Comum para todas as Redes de Radio
+#TODO: Gildecio E Barboza <gildecio@gmail.com.br>
+# 06 de Junho 2016 Seg: 12:50
+
+# Muda permissao web
+chown -R radiob. /var/www/
+chown -R radiob. /var/log/radio
+
+locate="/var/log/radio"
+
+ip=`cat /usr/local/bin/radio-update.sh | grep ip= | cut -d '"' -f2 | head -n1`
+hora=`cat /usr/local/bin/radio-update.sh | grep hora= | cut -d '"' -f2`
+rede=`cat /var/www/config.inc.php | grep rede | cut -d "'" -f2`
+loja=`cat /var/www/config.inc.php | grep loja | cut -d "'" -f2`
+data=`date`
+tempo=`uptime | cut -d "," -f1`
+ip_loja=`ifconfig | grep 'inet' | cut -d ":" -f2 | head -n1 | cut -d " " -f2`
+if [ -z $ip_loja  ]; then
+        ip_loja=`ifconfig | grep 'inet' | cut -d ":" -f2 | head -n1 | cut -d " " -f1`
+fi
+mask_loja=`ifconfig | grep "inet" | head -n1 | cut -d ":" -f4`
+gateway=`route -n | grep UG | head -n 1 | cut -b17- | cut -f1 -d" "`
+data_sql=`stat /var/www/radio.sql | grep Modify | tail -n1 | cut -d " " -f2`
+data_zip=`stat /var/www/radio.zip | grep Modify | tail -n1 | cut -d " " -f2`
+
+rede1=`cat /usr/local/bin/radio-update.sh | grep "rede=" | cut -d '"' -f2`
+loja1=`cat /usr/local/bin/radio-update.sh | grep "loja=" | cut -d '"' -f2`
+
+if [ -f /usr/sbin/sntp ]; then
+        sntp -P no -r $hora
+        hwclock -w
+else
+        ntpdate $hora
+        hwclock -w
+fi
+
+# Cria o arquivo de log de status da CPU
+echo "RESUMO - LOGS - MegaMidia Data: [log-status] `date +%d-%m-%Y`" > ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "====[ Setup da Maquina ]====" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo Rede =$rede >> ${locate}/${rede}_${loja}_status.log
+echo Loja =$loja >> ${locate}/${rede}_${loja}_status.log
+echo DataCenter =$ip >> ${locate}/${rede}_${loja}_status.log
+echo ServidorHora =$hora >> ${locate}/${rede}_${loja}_status.log
+echo IP =$ip_loja >> ${locate}/${rede}_${loja}_status.log
+echo MascaraRede =$mask_loja >> ${locate}/${rede}_${loja}_status.log
+echo Gateway =$gateway >> ${locate}/${rede}_${loja}_status.log
+echo "VERSAO SISTEMA: `/bin/cat /etc/VERSAO`" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "====[ Dados da Maquina ]====" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo Data =$data >> ${locate}/${rede}_${loja}_status.log
+echo Uptime =$tempo >> ${locate}/${rede}_${loja}_status.log
+echo Data SQL =$data_sql >> ${locate}/${rede}_${loja}_status.log
+echo Data ZIP =$data_zip >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+free -m | head -n2 >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ Crontab da Maquina ]====" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+cat /etc/crontab >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ Tamanho do Banco Musical ]====" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+du -h /usr/local/radio/generos/musical/ >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ Diretorio Musical ]====" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+ls -1 /usr/local/radio/generos/musical/ >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ HD ]====" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+df -h >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ Processador ]====" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+cat /proc/cpuinfo  >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ Conteudo Comercial ]====" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+ls -lh /usr/local/radio/generos/comercial/* | grep mp3 >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+
+echo "====[ TOCANDO ]====" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+if [ -f /var/log/radio/radio.log ]; then
+	cat /var/log/radio/radio.log | tail -n 5  >> ${locate}/${rede}_${loja}_status.log
+else
+	cat /tmp/playlist_out | grep Play | tail -n 5 >> ${locate}/${rede}_${loja}_status.log
+fi
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "====[ Logs VERSAO ]====" >> ${locate}/${rede}_${loja}_status.log
+versaolog=`cat /home/radiob/VERSAO| cut -d "=" -f2`
+# aaaammdd-version
+if [ $versaolog == "00001" ]; then
+        LOGS="Atualizado"
+else
+        LOGS="Desatualizado"
+fi
+echo "VERSAO LOGS = $LOGS" >> ${locate}/${rede}_${loja}_status.log
+
+if [ -f /usr/local/scripts/atualiza.sh ]; then
+
+if [ $rede == $rede1 ]; then
+        Redex="Configurado Corretamente"
+else
+        Redex="Erro - Reconfigure o setup.sh"
+fi
+
+if [ $loja == $loja1 ]; then
+        Lojax="Configurado Corretamente"
+else
+        Lojax="Erro - Reconfigure o setup.sh"
+fi
+
+echo "Rede = $Redex" >> ${locate}/${rede}_${loja}_status.log
+echo "Loja = $Lojax" >> ${locate}/${rede}_${loja}_status.log
+
+
+echo "====[ IP Externo ]====" >> ${locate}/${rede}_${loja}_status.log
+externo=`cat /tmp/ip_externo`
+echo "IP Externo = $externo" >> ${locate}/${rede}_${loja}_status.log
+
+if [ -f /var/www/streaming_WEB_OK ]; then
+echo "====[ Streaming Roldao ]====" >> ${locate}/${rede}_${loja}_status.log
+logdubX=`cat /var/www/streaming_WEB_OK`
+echo "Streaming : $logdubX" >> ${locate}/${rede}_${loja}_status.log
+fi
+
+if [ -f /home/radiob/scripts-atualiza ]; then
+echo "====[ Atualizado scripts ]====" >> ${locate}/${rede}_${loja}_status.log
+        cat /home/radiob/scripts-atualiza >> ${locate}/${rede}_${loja}_status.log
+fi
+
+if [ -f /usr/local/src/erro-player.txt ]; then
+echo "====[ ERROS streaming ]====" >> ${locate}/${rede}_${loja}_status.log
+        cat /usr/local/src/erro-player.txt >> ${locate}/${rede}_${loja}_status.log
+fi
+
+if [ -f /var/www/config_entrada.php ]; then
+echo "====[ Tipo de Streaming ]====" >> ${locate}/${rede}_${loja}_status.log
+x=`cat /var/www/config_entrada.php | grep "streaming =" | cut -d "=" -f2 | cut -d ";" -f1 | cut -d " " -f2`
+        if [ $x == "true" ]; then
+                echo "Web" > /etc/roldao-tipo
+                echo "Sistema Roldao: Web" >> ${locate}/${rede}_${loja}_status.log
+                echo "Volume Comercial = `cat /var/www/config_entrada.php | grep volumeComercial | cut -d "=" -f2 | cut -d ";" -f1`" >> ${locate}/${rede}_${loja}_status.log
+                echo "Volume Musical = `cat /var/www/config_entrada.php | grep volumeMusical | cut -d "=" -f2 | cut -d ";" -f1`" >> ${locate}/${rede}_${loja}_status.log
+        else
+                echo "Satelite" > /etc/roldao-tipo
+                echo "Sistema Roldao: Satelite" >> ${locate}/${rede}_${loja}_status.log
+                echo "Volume Comercial = `cat /var/www/config_entrada.php | grep volumeComercial | cut -d "=" -f2 | cut -d ";" -f1`" >> ${locate}/${rede}_${loja}_status.log
+                echo "Volume Musical = `cat /var/www/config_entrada.php | grep volumeMusical | cut -d "=" -f2 | cut -d ";" -f1`" >> ${locate}/${rede}_${loja}_status.log
+        fi
+fi
+
+if [ -f /var/www/monitora_streaming.sh ]; then
+echo "====[ Radio  Roldao ]====" >> ${locate}/${rede}_${loja}_status.log
+logdubX=`cat /var/www/monitora_streaming.sh | grep VERSAO004 | cut -d "#" -f2`
+        if [ $logdubX == "VERSAO004" ]; then
+                echo "VERSAO004 : ATUALIZADO" >> ${locate}/${rede}_${loja}_status.log
+        else
+                echo "VERSAO004 : NAO ATUALIZADO" >> ${locate}/${rede}_${loja}_status.log
+        fi
+fi
+
+### Corrige tabela
+if [ ! -d /var/lib/mysql/radio_locucao ]; then
+        mysqladmin create radio_locucao
+        mysql radio_locucao < /var/www/estrutura_radio_locucao
+else  
+        echo "DB - Radio Locucao - OK" 
+fi    
+
+
+zip -qj ${locate}/${rede}_${loja}_status ${locate}/${rede}_${loja}_status.log
+
+x=`rsync -Crvzp --timeout=180 --password-file=/etc/radio.update /var/log/radio/${rede}_${loja}_status.zip rsync://${rede}@${ip}:/${rede}_logs`
+if [ $? == 0 ]; then
+	/usr/local/bin/tocadas.sh
+	/usr/local/bin/trata-log.sh
+        rsync -Crvzp --timeout=180 --password-file=/etc/radio.update ${locate}/*.{zip,sql} rsync://${rede}@${ip}:/${rede}_logs
+        rm -f /var/log/radio/*.zip
+        rm -f /var/log/radio/*.sql
+else
+        echo "erro de envio"
+fi

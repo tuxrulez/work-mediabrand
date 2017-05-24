@@ -1,0 +1,41 @@
+#!/bin/bash
+clear
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo "			Confira sua DATA: `date`"
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo -n "DESEJA ALTERAR A DATA: 
+			1 - Nao
+			2 - Sim
+			>> "; read opc
+if [ $opc == "1" ]; then
+	echo "Nao Alterei sua data"
+	echo "Sua DATA: `date`"
+else
+	echo -n "Qual Dia: 
+		exemplo: Use dois digitos, 01, 02, 03 ... >> " ; read dia
+	echo -n "Qual Mes: 
+		exemplo: Use 02 para Fevereiro " ; read mes 
+	echo -n "Qual Hora: 
+		exemplo: Use dois digitos, 01, 02, 03 ... >> " ; read hora
+	echo -n "Qual Minuto: 
+		exemplo: Use dois digitos, 01, 02, 03 ... >> " ; read min
+	echo -n "Qual ANO: 
+		exemplo: Use quatro digitos 2015 2016 ... >>  " ; read ano
+	date $mes$dia$hora$min$ano
+	echo "                  Confira sua DATA: `date`"
+	hwclock -w
+fi

@@ -1,0 +1,145 @@
+# Efetua o sincronismo via RSYNC
+comercial=`/usr/bin/rsync -razv --copy-links --delete --password-file=/etc/radio.update rsync://$rede@$ip:/$rede/generos/$loja/ /usr/local/radio/generos/comercial`
+
+echo $comercial | grep -e .[Mm][Pp]3
+mp3=$?
+echo $comercial | grep -e .[Ww][Aa][Vv]
+wav=$?
+
+if [ $mp3 == 0 -o $wav == 0 ]; then
+    reinicia="sim"
+fi
+
+# Efetua o sincronismo da aplicacao se houve atualizacao
+aplicacao=`/usr/bin/rsync -razv --copy-links --delete --password-file=/etc/radio.update rsync://$rede@$ip:/$rede/scripts/$loja/ /usr/local/scripts`
+
+echo $aplicacao | grep -e 'atualiza.sh'
+
+if [ $? == 0 -a -f /usr/local/scripts/atualiza.sh ]; then
+    /usr/local/scripts/atualiza.sh
+fi
+
+# Efetua o sincronismo do banco de dados
+bd=`/usr/bin/rsync -razv --copy-links --password-file=/etc/radio.update rsync://$rede@$ip:/$rede/sql/$loja/ /var/www`
+
+echo $bd | grep -e 'radio.zip'
+
+if [ $? == 0 ]; then
+    /var/www/update.php
+    reinicia="sim"
+fi
+
+locate="/var/log/radio"
+audiencia="/var/log/logs_temp"
+
+if [ ! -d /var/log/temp_audiencia ]; then
+	mkdir /var/log/temp_audiencia
+fi
+
+# Cria o arquivo de log de status da CPU
+
+echo "<b>RESUMO - LOGS - MegaMidia -: </b>Data: 05 Ago 2015" > ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+
+echo "====[ <b>Setup da Maquina</b> ]====" >> ${locate}/${rede}_${loja}_status.log
+echo Rede =$rede >> ${locate}/${rede}_${loja}_status.log
+echo Loja =$loja >> ${locate}/${rede}_${loja}_status.log
+echo DataCenter =$ip >> ${locate}/${rede}_${loja}_status.log
+echo ServidorHora =$hora >> ${locate}/${rede}_${loja}_status.log
+
+# Trata IP da Maquina
+ip_loja2=`ifconfig  | grep 'inet end.:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+echo IP =$ip_loja2 >> ${locate}/${rede}_${loja}_status.log
+# Gateway da Maquina
+echo Gateway =`route -n  | head -n3  | grep -v Destino | grep -v Tabela| cut -d" " -f10` >> ${locate}/${rede}_${loja}_status.log
+if [ $? -eq 0 ]; then
+        externo=`cat /tmp/ip_externo`
+fi
+#externo=`wget -q -O - checkip.dyndns.org|sed -e 's/.*Current IP Address: //' -e 's/<.*$//' `
+echo "<b>IP Externo =</b>$externo" >> ${locate}/${rede}_${loja}_status.log
+echo "<b>Servidor DNS: </b>`cat /etc/resolv.conf`" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ <b>Dados da Maquina</b> ]====" >> ${locate}/${rede}_${loja}_status.log
+echo Data =`date` >> ${locate}/${rede}_${loja}_status.log
+echo Uptime =`uptime`  >> ${locate}/${rede}_${loja}_status.log
+echo Data SQL =`date -r /var/www/radio.sql` >> ${locate}/${rede}_${loja}_status.log
+echo Data ZIP =`date -r /var/www/radio.zip` >> ${locate}/${rede}_${loja}_status.log
+echo Espaco do HD =$hd >> ${locate}/${rede}_${loja}_status.log
+free -m | head -n2 >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ <b>Crontab da Maquina</b> ]====" >> ${locate}/${rede}_${loja}_status.log
+cat /etc/crontab | grep -v SHELL | grep -v PATH | grep -v MAILTO | grep -v HOME | grep -v ^$ >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ <b>Tamanho do Banco Musical</b> ]====" >> ${locate}/${rede}_${loja}_status.log
+du -h /usr/local/radio/generos/musical/ >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ <b>Tamanho HD</b> ]====" >> ${locate}/${rede}_${loja}_status.log
+df -h >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ <b>SISTEMA</b> ]====" >> ${locate}/${rede}_${loja}_status.log
+echo "VERSAO: `cat /etc/VERSAO`" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ <b>Memoria</b> ]====" >> ${locate}/${rede}_${loja}_status.log
+free -m >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ <b>Processador</b> ]====" >> ${locate}/${rede}_${loja}_status.log
+cat /proc/cpuinfo >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ <b>Scripts da Maquina</b> ]====" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "[ <b>Diretorio: /usr/local/bin/</b> ] " >> ${locate}/${rede}_${loja}_status.log
+ls -lh /usr/local/bin/ >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "[ <b>Diretorio: /usr/local/etc/</b> ] " >> ${locate}/${rede}_${loja}_status.log
+ls -lh /usr/local/etc/ >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "[ <b>Diretorio: /usr/local/scripts/</b> ] " >> ${locate}/${rede}_${loja}_status.log
+ls -lh /usr/local/scripts/ >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+echo "====[ <b>Diretorio Musical</b> ]====" >> ${locate}/${rede}_${loja}_status.log
+ls -lh /usr/local/radio/generos/musical/ >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "====[ <b>Conteudo Comercial</b> ]====" >> ${locate}/${rede}_${loja}_status.log
+ls -lh /usr/local/radio/generos/comercial/* | grep mp3 >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+echo "====[ <b>Conteudo Musical</b> ]====" >> ${locate}/${rede}_${loja}_status.log
+ls -lh /usr/local/radio/generos/musical/* >> ${locate}/${rede}_${loja}_status.log
+echo "" >> ${locate}/${rede}_${loja}_status.log
+
+
+# Compacta o arquivo de log recem criado
+zip -qj ${locate}/${rede}_${loja}_status ${locate}/${rede}_${loja}_status.log
+zip -qj ${locate}/${rede}_${loja}_executadas-`date +%d%m%y` ${audiencia}/*.txt
+
+# Envia o arquivo de log para o server
+rsync -aq --timeout=180 --password-file=/etc/radio.update ${locate}/*.zip rsync://${rede}@${ip}:/${rede}_logs
+# Exclui os arquivos que estao no diretorio de log
+cp -a /var/log/radio/*executadas* /var/log/temp_audiencia/
+rm -f /var/log/radio/*.zip
+rm -f ${audiencia}/*.txt
+
+
+# Reinicia o player se houve atualizacao
+if [ $reinicia == "sim" ]; then
+    pkill php
+    pkill mplayer
+    echo 'delete from arquivos; delete from esquemas; delete from generos; delete from grades; delete from playlists; delete from programacoes;' | mysql radio
+    (cd /var/www/; nohup ./update.php; nohup ./musical.php ; sleep 5; nohup ./player.php &)
+fi

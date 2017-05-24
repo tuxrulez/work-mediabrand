@@ -1,0 +1,111 @@
+#!/usr/bin/php -q
+<?php
+/**
+ * player.php: Carrega e executa uma playlist no XMMS
+ * Gildecio E Barboza - Arruma Eventos
+ * 01 de Set 2016 - Corrigido evento.
+*/
+
+// Gera a playlist
+exec("/srv/www/htdocs/playlist.php > /srv/www/htdocs/xmms.m3u");
+
+include "config.inc.php";
+mysql_connect("localhost", "root", ""); // host, usuario e senha
+mysql_select_db("radio");                  // DB
+
+$hora = localtime();
+$tempo = $hora[0] + $hora[1] * 60 + $hora[2] * 3600;
+
+$arquivos = mysql_query("SELECT hora_inicio FROM playlists
+					   WHERE hora_inicio < '$tempo'");   // iniciar
+$proximo = mysql_num_rows($arquivos);	// Quantos arquivos + 1?
+
+$arquivos = mysql_query("SELECT hora_inicio FROM playlists");   // todos
+mysql_data_seek($arquivos, $proximo);	// Vai para o proximo arquivo
+$arquivo = mysql_fetch_object($arquivos);   // Seleciona um arquivo
+
+// Gera o log, carrega a playlist
+exec("/srv/www/htdocs/crialog.php");
+exec("/usr/local/bin/xmms-shell -e clear");
+exec("/usr/local/bin/xmms-shell -e 'load /srv/www/htdocs/xmms.m3u'");
+
+// Acessa e reproduz o numero da faixa
+exec("/usr/local/bin/xmms-shell -e 'jump $proximo'");
+exec("/usr/local/bin/xmms-shell -e play");
+
+// Seleciona eventos validos para o dia e para o horario
+$eventos = mysql_query("SELECT arquivo,hora_inicio,tempo FROM
+	arquivos WHERE rede='$rede' AND loja='$loja' AND
+	tipo='comercial' AND genero='Eventos'
+	AND CURDATE() >= data_inicio AND CURDATE() <= data_fim AND
+	FIND_IN_SET(DAYOFWEEK(CURDATE()),dia_semana) AND
+	'$tempo' < hora_inicio AND
+	'$tempo' < hora_fim ORDER BY hora_inicio,arquivo");
+
+/**
+ codigo editado para liberar o mysql, 2016-08-29
+**/
+$eventosArr = array();
+
+while ($evento = mysql_fetch_object($eventos)) {
+	$eventosArr[] = $evento;	
+}
+
+$arquivos = mysql_query("SELECT arquivo FROM playlists");   // toda a playlist
+$ultimo = mysql_num_rows($arquivos) + 1;	// Quantos arquivos + 2?
+
+// Libera variaveis e desconecta do banco de dados
+mysql_free_result($eventos);
+mysql_close();
+
+foreach ($eventosArr as $key => $evento) {
+	# Espera a hora certa para iniciar o Evento
+	while($tempo < "$evento->hora_inicio") {
+		sleep(1);
+		$hora = localtime();
+		$tempo = $hora[0] + $hora[1] * 60 + $hora[2] * 3600;
+	}
+	$atual = system("/usr/local/bin/xmms-shell -e current-track | cut -d. -f1 | cut -d' ' -f3");	// Captura a faixa atual
+	$proxima = $atual + 1;	// Qual sera a proxima?
+	exec("echo '/usr/local/radio/generos/comercial/Eventos/$evento->arquivo' > /home/radiob/evento.m3u");	// pl com o evento
+	exec("/usr/local/bin/xmms-shell -e 'load /home/radiob/evento.m3u'");	// carrega a pl
+	exec("/usr/local/bin/xmms-shell -e 'jump $ultimo'");	// vai para o evento
+	sleep($evento->tempo);	// espera o evento acabar
+	exec("/usr/local/bin/xmms-shell -e 'jump $proxima'");	// Volta para a proxima
+	exec("/usr/local/bin/xmms-shell -e play");		// Volta a tocar
+	exec("/usr/local/bin/xmms-shell -e 'remove $ultimo'");	// remove o evento
+}
+
+/**
+ codigo original comentado
+**/
+/*
+while ($evento = mysql_fetch_object($eventos)) {
+	
+	# Espera a hora certa para iniciar o Evento
+	while($tempo < "$evento->hora_inicio") {
+		sleep(1);
+		$hora = localtime();
+		$tempo = $hora[0] + $hora[1] * 60 + $hora[2] * 3600;
+	}
+	$atual = system("/usr/local/bin/xmms-shell -e current-track | cut -d. -f1 | cut -d' ' -f3");	// Captura a faixa atual
+	$proxima = $atual + 1;	// Qual sera a proxima?
+	$ev = date('d/m/y H:i:s').$evento->arquivo;
+	exec("echo '$ev' >> /srv/www/htdocs/teste.txt");
+	exec("echo '/usr/local/radio/generos/comercial/Eventos/$evento->arquivo' > /home/radiob/evento.m3u");	// pl com o evento
+	exec("/usr/local/bin/xmms-shell -e 'load /home/radiob/evento.m3u'");	// carrega a pl
+	$arquivos = mysql_query("SELECT arquivo FROM playlists");   // toda a playlist
+	$ultimo = mysql_num_rows($arquivos) + 1;	// Quantos arquivos + 2?
+	exec("/usr/local/bin/xmms-shell -e 'jump $ultimo'");	// vai para o evento
+	sleep($evento->tempo);	// espera o evento acabar
+	exec("/usr/local/bin/xmms-shell -e 'jump $proxima'");	// Volta para a proxima
+	exec("/usr/local/bin/xmms-shell -e play");		// Volta a tocar
+	exec("/usr/local/bin/xmms-shell -e 'remove $ultimo'");	// remove o evento
+}
+
+// Libera variaveis e desconecta do banco de dados
+mysql_free_result($eventos);
+mysql_close();
+*/
+
+?>

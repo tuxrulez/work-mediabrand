@@ -1,0 +1,101 @@
+# Efetua o sincronismo via RSYNC
+comercial=`/usr/bin/rsync -razv --copy-links --delete --password-file=/etc/radio.update rsync://$rede@$ip:/$rede/generos/$loja/ /usr/local/radio/generos/comercial`
+
+echo $comercial | grep -e .[Mm][Pp]3
+mp3=$?
+echo $comercial | grep -e .[Ww][Aa][Vv]
+wav=$?
+
+if [ $mp3 == 0 -o $wav == 0 ]; then
+    reinicia="sim"
+fi
+
+# Efetua o sincronismo da aplicacao se houve atualizacao
+aplicacao=`/usr/bin/rsync -razv --copy-links --delete --password-file=/etc/radio.update rsync://$rede@$ip:/$rede/scripts/$loja/ /usr/local/scripts`
+
+echo $aplicacao | grep -e 'atualiza.sh'
+
+if [ $? == 0 -a -f /usr/local/scripts/atualiza.sh ]; then
+    /usr/local/scripts/atualiza.sh
+fi
+
+# Efetua o sincronismo do banco de dados
+bd=`/usr/bin/rsync -razv --copy-links --password-file=/etc/radio.update rsync://$rede@$ip:/$rede/sql/$loja/ /var/www/html`
+
+echo $bd | grep -e 'radio.zip'
+
+if [ $? == 0 ]; then
+    /var/www/html/update.php
+    reinicia="sim"
+fi
+
+# Sincroniza o relogio e grava a hora na BIOS
+/usr/sbin/sntp -P no -r $hora
+hwclock -w
+
+# Cria o arquivo de log de status da CPU
+locate="/var/log/radio"
+/bin/echo v2014082901 > /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "Alter: Gildecio E Barboza <gildecio@gmail.com> - 29 Ago 2014"  >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "#####################" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "##  STATUS DA CPU  ##" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "#####################" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "====[Data/Uptime]====" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/date >> /var/log/radio/"$rede"_"$loja"_status.log
+/usr/bin/uptime >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "====[Dados da CPU]====" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/cat /proc/cpuinfo >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "====[Dispositivos PCI]====" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+lspci >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "====[Espaco de HD]====" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/df -h >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "====[Informacoes sobre BAD BLOCKS]====" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/dmesg | /bin/grep hd | /usr/bin/tail -n 500 >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "====[Diretorio de comerciais]====" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/ls -laR /usr/local/radio/generos/comercial/ >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "====[Diretorio do banco musical]====" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/ls -laR /usr/local/radio/generos/musical/ >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "====[Diretorio de scripts]====" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/ls -laR /usr/local/scripts/ >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "" >> /var/log/radio/"$rede"_"$loja"_status.log
+/bin/echo "====[ IP Externo ]====" /var/log/radio/"$rede"_"$loja"_status.log
+if [ $? -eq 0 ]; then
+        externo=`cat /tmp/ip_externo`
+fi
+#externo=`wget -q -O - checkip.dyndns.org|sed -e 's/.*Current IP Address: //' -e 's/<.*$//' `
+echo "<b>IP Externo =</b>$externo" >> ${locate}/${rede}_${loja}_status.log
+
+# Compacta o arquivo de log recem criado
+/usr/bin/zip /var/log/radio/"$rede"_"$loja"_status /var/log/radio/"$rede"_"$loja"_status.log
+
+# Apaga as informacoes de chaves de criptografia (known_hosts) do ssh
+/bin/rm -rf /root/.ssh
+
+rsync -aq --timeout=180 --password-file=/etc/radio.update ${locate}/*.zip rsync://${rede}@${ip}:/${rede}_logs
+
+# Verifica o retorno do camando anterior e exclui os arquivos recem transferidos se for o caso
+if [ $? == 0 ]; then
+    rm -f /var/log/radio/*.zip
+fi
+
+# Reinicia o player se houve atualizacao
+if [ $reinicia == "sim" ]; then
+    killall X
+fi
+

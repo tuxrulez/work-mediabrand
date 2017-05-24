@@ -1,0 +1,10 @@
+#!/bin/bash
+clear
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo "`cat /etc/VERSAO` num precisa do tabela :D ... PAGA COCA!"
+sleep 3
+echo "Executado Tabela em: `date`" >> /usr/src/tabela.txt

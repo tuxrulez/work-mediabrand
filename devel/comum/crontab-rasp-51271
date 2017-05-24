@@ -1,0 +1,20 @@
+SHELL=/bin/bash
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=root
+HOME=/
+
+### ultima modificacao: 06 de Julho 2016
+
+### Por: Gildecio E Barboza <gildecio@gmail.com>
+ 
+40 * * * *	root /usr/local/bin/log-status.sh
+*/10 * * * *	root /usr/local/bin/checa_ip
+00 */1 * * *	root /usr/local/bin/tocadas.sh
+03 */3 * * *	root /usr/local/bin/trata-log.sh
+
+59 23 * * * root /usr/local/bin/radio-update.sh
+00 00 * * *	root /usr/local/bin/limparadio.sh
+01 00 * * *	root /sbin/reboot
+00 02 * * *	root /usr/local/bin/radio-musical.sh
+00 16 * * *	root /usr/local/bin/limpa-log.sh
+00 00 * * *     root /usr/local/bin/force_playlist.sh
